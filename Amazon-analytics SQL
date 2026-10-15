@@ -1,0 +1,120 @@
+-- 1. Total number of orders
+SELECT COUNT(*) AS total_orders
+FROM amazon_sales_data;
+
+-- 2. Total revenue generated
+SELECT SUM(price * quantity) AS total_revenue
+FROM amazon_sales_data;
+
+-- 3. Distinct product categories
+SELECT DISTINCT category
+FROM amazon_sales_data;
+
+-- 4. Top 5 most expensive products
+SELECT product, price
+FROM amazon_sales_data
+ORDER BY price DESC
+LIMIT 5;
+
+-- 5. Count of cancelled orders
+SELECT COUNT(*) AS cancelled_orders
+FROM amazon_sales_data
+WHERE status = 'Cancelled';
+
+-- 6. Total sales revenue by category
+SELECT category, SUM(price * quantity) AS revenue
+FROM amazon_sales_data
+GROUP BY category
+ORDER BY revenue DESC;
+
+-- 7. Top 5 customers by amount spent
+SELECT customer_name, SUM(price * quantity) AS total_spent
+FROM amazon_sales_data
+GROUP BY customer_name
+ORDER BY total_spent DESC
+LIMIT 5;
+
+-- 8. Most popular payment method
+SELECT payment_method, COUNT(*) AS order_count
+FROM amazon_sales_data
+GROUP BY payment_method
+ORDER BY order_count DESC
+LIMIT 1;
+
+-- 9. Monthly sales trend
+SELECT DATE_FORMAT(date, '%Y-%m') AS month, SUM(price * quantity) AS revenue
+FROM amazon_sales_data
+GROUP BY month
+ORDER BY month;
+
+-- 10. Average order value per category
+SELECT category, AVG(price * quantity) AS avg_order_value
+FROM amazon_sales_data
+GROUP BY category
+ORDER BY avg_order_value DESC;
+
+-- 11. Location with highest revenue
+SELECT customer_location, SUM(price * quantity) AS revenue
+FROM amazon_sales_data
+GROUP BY customer_location
+ORDER BY revenue DESC
+LIMIT 1;
+
+-- 12. First and most recent order per customer
+SELECT customer_name, MIN(date) AS first_order, MAX(date) AS last_order
+FROM amazon_sales_data
+GROUP BY customer_name;
+
+-- 13. Rank products by total revenue
+SELECT product,
+       SUM(price * quantity) AS revenue,
+       RANK() OVER (ORDER BY SUM(price * quantity) DESC) AS revenue_rank
+FROM amazon_sales_data
+GROUP BY product;
+
+-- 14. Percentage contribution of each category to total revenue
+SELECT category,
+       SUM(price * quantity) AS revenue,
+       ROUND(SUM(price * quantity) * 100.0 / (SELECT SUM(price * quantity) FROM amazon_sales_data), 2) AS pct_of_total
+FROM amazon_sales_data
+GROUP BY category
+ORDER BY pct_of_total DESC;
+
+-- 15. Repeat customers (more than 3 orders)
+SELECT customer_name, COUNT(*) AS order_count
+FROM amazon_sales_data
+GROUP BY customer_name
+HAVING COUNT(*) > 3
+ORDER BY order_count DESC;
+
+-- 16. Bucket orders into value tiers
+SELECT order_id, (price * quantity) AS order_value,
+       CASE
+           WHEN (price * quantity) < 50 THEN 'Low'
+           WHEN (price * quantity) BETWEEN 50 AND 200 THEN 'Medium'
+           ELSE 'High'
+       END AS value_tier
+FROM amazon_sales_data;
+
+-- 17. Month-over-month revenue growth
+WITH monthly AS (
+    SELECT DATE_FORMAT(date, '%Y-%m') AS month, SUM(price * quantity) AS revenue
+    FROM amazon_sales_data
+    GROUP BY month
+)
+SELECT month,
+       revenue,
+       LAG(revenue) OVER (ORDER BY month) AS prev_month_revenue,
+       ROUND((revenue - LAG(revenue) OVER (ORDER BY month)) * 100.0
+             / LAG(revenue) OVER (ORDER BY month), 2) AS pct_growth
+FROM monthly
+ORDER BY month;
+
+-- 18. Category with highest cancellation/return rate
+SELECT category,
+       SUM(CASE WHEN status IN ('Cancelled', 'Returned') THEN 1 ELSE 0 END) AS bad_orders,
+       COUNT(*) AS total_orders,
+       ROUND(SUM(CASE WHEN status IN ('Cancelled', 'Returned') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS bad_rate_pct
+FROM amazon_sales_data
+GROUP BY category
+ORDER BY bad_rate_pct DESC;
